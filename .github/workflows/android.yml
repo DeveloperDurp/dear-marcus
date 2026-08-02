@@ -1,0 +1,50 @@
+name: Android CI (Debug)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle with cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run lint, unit tests, and debug assemble
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean lintDebug testDebugUnitTest assembleDebug
+
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dearmarcus-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+
+      - name: Upload lint and unit-test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dearmarcus-debug-reports
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+            app/build/reports/tests/testDebugUnitTest/**
+            app/build/test-results/testDebugUnitTest/**
+          if-no-files-found: warn
