@@ -115,3 +115,62 @@ jobs:
           ./gradlew publishReleaseApkPublicationToGitHubPackagesRepository \
             -PpackageVersion="$PACKAGE_VERSION"
           echo "Published com.dearmarcus:dear-marcus:$PACKAGE_VERSION to GitHub Packages."
+
+  publish-nightly-apk:
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle with cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Derive nightly package version
+        id: version
+        shell: bash
+        run: |
+          run_number='${{ github.run_number }}'
+          run_attempt='${{ github.run_attempt }}'
+          package_version="0.0.0-nightly.${run_number}"
+          if [[ "${run_attempt}" != "1" ]]; then
+            package_version="${package_version}.${run_attempt}"
+          fi
+
+          if [[ ! "$package_version" =~ ^0\.0\.0-nightly\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::Invalid nightly package version: ${package_version}"
+            exit 1
+          fi
+
+          echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble debug APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Publish nightly APK to GitHub Packages
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+        run: |
+          echo "Publishing com.dearmarcus:dear-marcus:${PACKAGE_VERSION} to GitHub Packages."
+          echo "Coordinates: com.dearmarcus:dear-marcus:${PACKAGE_VERSION}"
+          echo "Repository: ${GITHUB_REPOSITORY}"
+          ./gradlew publishReleaseApkPublicationToGitHubPackagesRepository \
+            -PpackageVersion="$PACKAGE_VERSION"
