@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="icon_parchment">#F2E8D5</color>
+    <color name="icon_paper_lifted">#FFF9ED</color>
+    <color name="icon_ink">#1F2926</color>
+    <color name="icon_ink_soft">#50605A</color>
+    <color name="icon_bronze">#A46E3C</color>
+</resources>

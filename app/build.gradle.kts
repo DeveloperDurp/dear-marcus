@@ -1,8 +1,11 @@
+import org.gradle.api.publish.maven.MavenPublication
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    `maven-publish`
 }
 
 android {
@@ -62,4 +65,33 @@ dependencies {
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            register<MavenPublication>("releaseApk") {
+                groupId = "com.dearmarcus"
+                artifactId = "dear-marcus"
+                version = providers.gradleProperty("packageVersion").getOrElse("0.0.0-dev")
+
+                artifact(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk")) {
+                    extension = "apk"
+                    builtBy(tasks.named("assembleDebug"))
+                }
+            }
+        }
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = uri(
+                    "https://maven.pkg.github.com/${providers.environmentVariable("GITHUB_REPOSITORY").getOrElse("OWNER/REPOSITORY")}",
+                )
+                credentials {
+                    username = providers.environmentVariable("GITHUB_ACTOR").orNull
+                    password = providers.environmentVariable("GITHUB_TOKEN").orNull
+                }
+            }
+        }
+    }
 }
