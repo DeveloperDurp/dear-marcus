@@ -1,1 +1,7 @@
 .omo/
+.gradle/
+/build/
+/app/build/
+local.properties
+.idea
+.kotlin/
