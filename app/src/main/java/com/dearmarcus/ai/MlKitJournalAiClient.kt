@@ -30,7 +30,7 @@ class MlKitJournalAiClient private constructor(
     } catch (error: CancellationException) {
         throw error
     } catch (_: Exception) {
-        AiReadiness.Error(AiFailure.Unexpected)
+        AiReadiness.Error(AiFailure.SetupRequired)
     }
 
     override fun startUserInitiatedDownload(): Flow<AiDownloadState> = flow {
@@ -220,17 +220,6 @@ private class MlKitPromptGateway(
         }
 }
 
-private fun NanoPromptCall<NanoPromptStatus>.toReadiness(): AiReadiness = when (this) {
-    is NanoPromptCall.Success -> when (value) {
-        NanoPromptStatus.Available -> AiReadiness.Available
-        NanoPromptStatus.Downloadable -> AiReadiness.Downloadable
-        NanoPromptStatus.Downloading -> AiReadiness.Downloading
-        NanoPromptStatus.Unavailable -> AiReadiness.Unavailable
-        NanoPromptStatus.Unknown -> AiReadiness.Error(AiFailure.Unexpected)
-    }
-    is NanoPromptCall.Failure -> AiReadiness.Error(failure.toAiFailure())
-}
-
 private fun NanoPromptCall<NanoPromptResponse>.toGenerationResult(): AiGenerationResult = when (this) {
     is NanoPromptCall.Success -> when {
         value.reachedTokenLimit -> AiGenerationResult.Failure(AiFailure.TokenLimit)
@@ -249,7 +238,7 @@ private fun NanoPromptCall<NanoPromptDownloadEvent>.toDownloadState(): AiDownloa
     is NanoPromptCall.Failure -> AiDownloadState.Failed(failure.toAiFailure())
 }
 
-private fun NanoPromptFailure.toAiFailure(): AiFailure = when (this) {
+internal fun NanoPromptFailure.toAiFailure(): AiFailure = when (this) {
     NanoPromptFailure.TokenLimit -> AiFailure.TokenLimit
     NanoPromptFailure.Busy -> AiFailure.Busy
     NanoPromptFailure.Quota -> AiFailure.Quota

@@ -48,6 +48,7 @@ class AiStatusScreenTest {
             AiReadiness.Error(AiFailure.BackgroundBlocked) to "On-device AI only runs while the app is open. Try again from the app.",
             AiReadiness.Error(AiFailure.TokenLimit) to "This reflection is too large to process on-device.",
             AiReadiness.Error(AiFailure.InvalidOutput) to "On-device AI returned an incomplete response. Try again from the app.",
+            AiReadiness.Error(AiFailure.SetupRequired) to "Set up or update on-device AI, then try again from the app.",
             AiReadiness.Error(AiFailure.Unexpected) to "On-device AI could not create feedback. Try again from the app.",
         )
         var readiness by mutableStateOf<AiReadiness>(AiReadiness.Available)
@@ -93,6 +94,26 @@ class AiStatusScreenTest {
         }
 
         composeRule.onNodeWithText("Save entry and create reflection").assertIsEnabled()
+    }
+
+    @Test
+    fun setupFailure_keepsSaveAvailableWithOnlyForegroundRetry() {
+        composeRule.setContent {
+            DailyEntryScreen(
+                state = DailyEntryUiState(
+                    whatWentWell = "I listened.",
+                    whatWentPoorly = "I rushed.",
+                    whatWouldYouDoDifferently = "I will pause.",
+                    aiReadiness = AiReadiness.Error(AiFailure.SetupRequired),
+                ),
+                onAnswerChanged = { _, _ -> },
+                onSave = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Save entry").assertIsEnabled()
+        composeRule.onNodeWithText("Check on-device AI again").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Download on-device model").assertCountEquals(0)
     }
 
     @Test

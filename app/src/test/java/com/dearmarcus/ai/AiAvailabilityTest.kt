@@ -283,6 +283,28 @@ class AiAvailabilityTest {
     }
 
     @Test
+    fun statusQuerySetupFailure_showsSetupGuidanceWithoutDownloadOrInference() = runBlocking {
+        val gateway = FakeNanoPromptGateway(
+            statusResult = NanoPromptCall.Failure(NanoPromptFailure.Unexpected),
+        )
+        val client = MlKitJournalAiClient.forGateway(gateway)
+
+        val readiness = client.checkAvailability()
+
+        assertEquals(AiReadiness.Error(AiFailure.SetupRequired), readiness)
+        assertEquals(
+            AiUserGuidance(
+                "Set up or update on-device AI, then try again from the app.",
+                AiUserAction.RetryInForeground,
+                false,
+            ),
+            AiUserGuidanceMapper.forReadiness(readiness),
+        )
+        assertEquals(0, gateway.downloadCalls)
+        assertEquals(0, gateway.generateCalls)
+    }
+
+    @Test
     fun unexpectedGatewayExceptions_areNormalizedAndCancellationPropagates() = runBlocking {
         val statusClient = MlKitJournalAiClient.forGateway(
             ThrowingNanoPromptGateway(ThrowPoint.Status),
@@ -297,7 +319,7 @@ class AiAvailabilityTest {
             ThrowingNanoPromptGateway(ThrowPoint.GenerationCancellation),
         )
 
-        assertEquals(AiReadiness.Error(AiFailure.Unexpected), statusClient.checkAvailability())
+        assertEquals(AiReadiness.Error(AiFailure.SetupRequired), statusClient.checkAvailability())
         assertEquals(
             listOf(AiDownloadState.Failed(AiFailure.Unexpected)),
             downloadClient.startUserInitiatedDownload().toList(),

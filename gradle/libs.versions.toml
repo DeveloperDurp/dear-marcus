@@ -8,9 +8,9 @@ androidxTestEspresso = "3.7.0"
 composeBom = "2025.04.01"
 junit = "4.13.2"
 json = "20260719"
-kotlin = "2.1.21"
-ksp = "2.1.21-2.0.1"
-mlkitGenaiPrompt = "1.0.0-beta2"
+kotlin = "2.3.0"
+ksp = "2.3.0"
+mlkitGenaiPrompt = "1.0.0-beta4"
 room = "2.7.1"
 
 [libraries]

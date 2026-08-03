@@ -50,6 +50,10 @@ sealed interface AiFailure {
         override val status = AiStatus.INVALID_OUTPUT
     }
 
+    data object SetupRequired : AiFailure {
+        override val status = AiStatus.UNEXPECTED_ERROR
+    }
+
     data object Unexpected : AiFailure {
         override val status = AiStatus.UNEXPECTED_ERROR
     }
@@ -140,6 +144,11 @@ object AiUserGuidanceMapper {
             action = AiUserAction.RetryInForeground,
             generationEnabled = false,
         )
+        AiFailure.SetupRequired -> AiUserGuidance(
+            message = "Set up or update on-device AI, then try again from the app.",
+            action = AiUserAction.RetryInForeground,
+            generationEnabled = false,
+        )
         AiFailure.Unexpected -> AiUserGuidance(
             message = "On-device AI could not create feedback. Try again from the app.",
             action = AiUserAction.RetryInForeground,
@@ -155,4 +164,20 @@ interface OnDeviceAiClient {
     fun startUserInitiatedDownload(): Flow<AiDownloadState>
 
     suspend fun generate(prompt: String): AiGenerationResult
+}
+
+internal fun NanoPromptCall<NanoPromptStatus>.toReadiness(): AiReadiness = when (this) {
+    is NanoPromptCall.Success -> when (value) {
+        NanoPromptStatus.Available -> AiReadiness.Available
+        NanoPromptStatus.Downloadable -> AiReadiness.Downloadable
+        NanoPromptStatus.Downloading -> AiReadiness.Downloading
+        NanoPromptStatus.Unavailable -> AiReadiness.Unavailable
+        NanoPromptStatus.Unknown -> AiReadiness.Error(AiFailure.Unexpected)
+    }
+    is NanoPromptCall.Failure -> AiReadiness.Error(
+        when (failure) {
+            NanoPromptFailure.Unexpected -> AiFailure.SetupRequired
+            else -> failure.toAiFailure()
+        },
+    )
 }
