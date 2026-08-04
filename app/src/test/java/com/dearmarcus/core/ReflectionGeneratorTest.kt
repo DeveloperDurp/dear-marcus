@@ -28,6 +28,12 @@ class ReflectionGeneratorTest {
         assertTrue(request.prompt.contains("do differently"))
         assertTrue(request.prompt.contains("untrusted journal data"))
         assertTrue(request.prompt.contains("Stoic"))
+        assertTrue(request.prompt.contains("Teach one historically defensible Stoic principle"))
+        assertTrue(request.prompt.contains("examining judgments, virtue, responsible agency, or limits of control"))
+        assertTrue(request.prompt.contains("practical next step"))
+        assertTrue(request.prompt.contains("without impersonating Marcus Aurelius"))
+        assertTrue(request.prompt.contains("Do not invent quotations or citations"))
+        assertTrue(request.prompt.contains("do not present modern advice as ancient text"))
         assertTrue(request.prompt.contains("Do not diagnose"))
         assertFalse(request.prompt.contains("prior journal transcript"))
     }

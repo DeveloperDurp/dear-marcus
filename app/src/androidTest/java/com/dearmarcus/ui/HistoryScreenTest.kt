@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -147,6 +148,32 @@ class HistoryScreenTest {
         composeRule.onNodeWithTag(HistoryTestTags.EXPORT).performClick()
 
         check(exportCalls == 1)
+    }
+
+    @Test
+    fun backToHistoryIsTheOnlyFooterActionAndReturnsToTheListAfterScrolling() {
+        composeRule.setHistoryContent(HistoryUiState(entries = seededEntries()))
+
+        composeRule.onNodeWithTag("history-entry-entry-1").performClick()
+
+        composeRule.onAllNodesWithText("Back to history").assertCountEquals(1)
+        composeRule.onNodeWithText("Back to history").performScrollTo().assertIsDisplayed().performClick()
+
+        composeRule.onNodeWithText("Aug 3, 2026 · 18:30").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Back to history").assertCountEquals(0)
+    }
+
+    @Test
+    fun backToHistoryFromEditModeClearsEditControlsAndReturnsToTheList() {
+        composeRule.setHistoryContent(HistoryUiState(entries = seededEntries()))
+
+        composeRule.onNodeWithTag("history-entry-entry-1").performClick()
+        composeRule.onNodeWithText("Edit entry").performClick()
+        composeRule.onNodeWithText("Back to history").performScrollTo().performClick()
+
+        composeRule.onNodeWithText("Aug 3, 2026 · 18:30").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Save changes").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Cancel edit").assertCountEquals(0)
     }
 
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.setHistoryContent(

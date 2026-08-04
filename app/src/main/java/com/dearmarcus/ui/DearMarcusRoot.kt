@@ -1,6 +1,7 @@
 package com.dearmarcus.ui
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -59,6 +60,10 @@ fun DearMarcusRoot(
     val dailyState by viewModel.uiState.collectAsStateWithLifecycle()
     val historyState by historyViewModel.uiState.collectAsStateWithLifecycle()
     val reviewState by reviewViewModel.uiState.collectAsStateWithLifecycle()
+    BackHandler(
+        enabled = destination == DearMarcusDestination.HISTORY && historyState.selectedEntry != null,
+        onBack = historyViewModel::closeDetail,
+    )
     val createDocumentLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->

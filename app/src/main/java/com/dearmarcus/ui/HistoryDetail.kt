@@ -44,7 +44,6 @@ internal fun HistoryDetail(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TextButton(onClick = onClose) { Text("Back to history") }
         Text(entry.entry.localDateTime.display(), style = MaterialTheme.typography.headlineMedium)
         if (edit == null) {
             ReadOnlyAnswers(entry)
@@ -67,6 +66,7 @@ internal fun HistoryDetail(
                 Text("Cancel edit")
             }
         }
+        TextButton(onClick = onClose) { Text("Back to history") }
     }
 }
 

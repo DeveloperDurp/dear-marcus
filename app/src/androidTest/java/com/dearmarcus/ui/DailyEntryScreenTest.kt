@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -39,6 +40,11 @@ class DailyEntryScreenTest {
             .performTextInput("I will pause.")
 
         composeRule.onNodeWithText("Save entry").assertIsEnabled()
+
+        composeRule.onNodeWithTag(DailyEntryTestTags.DO_DIFFERENTLY).performTextClearance()
+
+        composeRule.onNodeWithText("This answer is required.").assertIsDisplayed()
+        composeRule.onNodeWithText("Save entry").assertIsNotEnabled()
     }
 
     @Test
@@ -77,9 +83,10 @@ class DailyEntryScreenTest {
         )
 
         composeRule.fillEveryAnswer()
-        composeRule.onNodeWithText("Save entry").performClick()
+        composeRule.onNodeWithText("Save entry").performScrollTo().performClick()
 
-        composeRule.onNodeWithText("Choose the deliberate response.").assertIsDisplayed()
+        composeRule.onNodeWithText("Entry saved.").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Choose the deliberate response.").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -95,12 +102,31 @@ class DailyEntryScreenTest {
         )
 
         composeRule.fillEveryAnswer()
-        composeRule.onNodeWithText("Save entry").performClick()
+        composeRule.onNodeWithText("Save entry").performScrollTo().performClick()
 
-        composeRule.onNodeWithText("Entry saved.").assertIsDisplayed()
+        composeRule.onNodeWithText("Entry saved.").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(
             "On-device reflection is unavailable. Your entry remains saved; try again from the foreground.",
-        ).assertIsDisplayed()
+        ).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun hidesEntrySavedTextForFailedSubmission() {
+        composeRule.setDailyEntryContent(
+            onSave = { state ->
+                state.copy(
+                    submission = DailySubmissionState.SaveFailed(
+                        "Could not save today. Please try again.",
+                    ),
+                )
+            },
+        )
+
+        composeRule.fillEveryAnswer()
+        composeRule.onNodeWithText("Save entry").performScrollTo().performClick()
+
+        composeRule.onNodeWithText("Could not save today. Please try again.").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Entry saved.").assertDoesNotExist()
     }
 
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.setDailyEntryContent(
