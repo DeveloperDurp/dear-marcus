@@ -43,6 +43,18 @@ class JournalBackupCodecFailureTest {
     }
 
     @Test
+    fun rejectsExportedAtEpochMillisOverflowAndUnderflow() {
+        assertEquals(
+            JournalBackupDecodeFailure.InvalidBackup("$.exportedAtEpochMillis"),
+            decodeFailure(validPayload.replace("\"exportedAtEpochMillis\":1785587400000", "\"exportedAtEpochMillis\":9223372036854775808")),
+        )
+        assertEquals(
+            JournalBackupDecodeFailure.InvalidBackup("$.exportedAtEpochMillis"),
+            decodeFailure(validPayload.replace("\"exportedAtEpochMillis\":1785587400000", "\"exportedAtEpochMillis\":-9223372036854775809")),
+        )
+    }
+
+    @Test
     fun rejectsUnknownFieldsInsteadOfIgnoringThem() {
         assertEquals(
             JournalBackupDecodeFailure.UnknownField("$", "unexpected"),

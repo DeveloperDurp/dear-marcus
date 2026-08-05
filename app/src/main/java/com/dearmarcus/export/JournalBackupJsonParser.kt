@@ -90,10 +90,11 @@ internal class JournalBackupJsonParser {
     private fun JSONObject.requireLong(path: String): Long = when (val value = requireValue(path)) {
         is Int -> value.toLong()
         is Long -> value
-        is BigInteger -> try {
-            value.longValueExact()
-        } catch (_: ArithmeticException) {
-            fail(JournalBackupDecodeFailure.InvalidBackup(path))
+        is BigInteger -> {
+            if (value < BigInteger.valueOf(Long.MIN_VALUE) || value > BigInteger.valueOf(Long.MAX_VALUE)) {
+                fail(JournalBackupDecodeFailure.InvalidBackup(path))
+            }
+            value.toLong()
         }
         else -> fail(JournalBackupDecodeFailure.InvalidBackup(path))
     }
