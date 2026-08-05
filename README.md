@@ -2,6 +2,8 @@
 
 Daily Stoic journaling with optional on-device reflection: your entries, your data, your device.
 
+<img src="screenshots/Screenshot_1.png" alt="drawing" width="300"/> <img src="screenshots/Screenshot_2.png" alt="drawing" width="300"/>
+
 ## Local by design
 
 - Journal entries and approved derived insights are stored in the app's private local storage. The release policy prohibits accounts, cloud sync, telemetry, Firebase, and journal network access. The source manifest requests no `INTERNET` permission; a release is eligible only after its resolved dependency graph and merged manifest meet that policy.
