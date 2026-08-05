@@ -28,16 +28,16 @@ data class ReflectionInput(
 
 enum class ReflectionFailure(val userMessage: String) {
     CLIENT_UNAVAILABLE(
-        "On-device reflection is unavailable. Your entry remains saved; try again from the foreground.",
+        "On-device reflection is unavailable. Your entry remains saved; retry the saved entry from Settings while the app remains foregrounded.",
     ),
     INVALID_OUTPUT(
-        "On-device reflection returned unusable output. Your entry remains saved; try again later.",
+        "On-device reflection returned unusable output. Your entry remains saved; retry the saved entry from Settings while the app remains foregrounded.",
     ),
     INPUT_TOO_LARGE(
-        "Reflection was not generated because the on-device input is too large. Shorten the entry and try again.",
+        "Reflection was not generated because the on-device input is too large. Edit the entry to shorten it, then save again.",
     ),
     ENTRY_CHANGED(
-        "The entry changed before feedback could be saved. Your latest answers remain saved; refresh from the foreground.",
+        "The entry changed before feedback could be saved. Your latest answers remain saved; retry the saved entry from Settings while the app remains foregrounded.",
     ),
 }
 

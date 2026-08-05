@@ -89,5 +89,4 @@ object DailyEntryTestTags {
     const val WENT_WELL = "daily-answer-went-well"
     const val WENT_POORLY = "daily-answer-went-poorly"
     const val DO_DIFFERENTLY = "daily-answer-do-differently"
-    const val AI_STATUS = "daily-ai-status"
 }

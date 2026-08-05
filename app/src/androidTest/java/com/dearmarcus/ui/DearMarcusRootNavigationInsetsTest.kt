@@ -37,6 +37,7 @@ class DearMarcusRootNavigationInsetsTest {
         assertDestinationSelected("Daily")
         selectDestination("History")
         selectDestination("Review")
+        selectDestination("Settings")
         selectDestination("Daily")
     }
 

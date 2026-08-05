@@ -30,5 +30,4 @@ object ReviewTestTags {
     const val CURRENT_MEMORY = "review-current-memory"
     const val LATEST_FEEDBACK = "review-latest-feedback"
     const val STALE_NOTICE = "review-stale-notice"
-    const val REFRESH = "review-refresh"
 }

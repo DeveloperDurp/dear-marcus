@@ -34,7 +34,6 @@ internal fun HistoryDetail(
     onSaveEdit: () -> Unit,
     onCancelEdit: () -> Unit,
     onRequestDelete: () -> Unit,
-    onRefreshInsights: () -> Unit,
     modifier: Modifier,
 ) {
     Column(
@@ -47,7 +46,7 @@ internal fun HistoryDetail(
         Text(entry.entry.localDateTime.display(), style = MaterialTheme.typography.headlineMedium)
         if (edit == null) {
             ReadOnlyAnswers(entry)
-            Feedback(entry, onRefreshInsights)
+            Feedback(entry)
             statusMessage?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
             Button(enabled = !isWorking, onClick = onBeginEdit, modifier = Modifier.fillMaxWidth()) {
                 Text("Edit entry")
@@ -78,7 +77,7 @@ private fun ReadOnlyAnswers(entry: HistoryEntry) {
 }
 
 @Composable
-private fun Feedback(entry: HistoryEntry, onRefreshInsights: () -> Unit) {
+private fun Feedback(entry: HistoryEntry) {
     val reflection = entry.reflection
     if (reflection == null) {
         Text(
@@ -96,7 +95,11 @@ private fun Feedback(entry: HistoryEntry, onRefreshInsights: () -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
-        TextButton(onClick = onRefreshInsights) { Text("Refresh insights") }
+        Text(
+            "Go to Settings to refresh insights.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

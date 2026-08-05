@@ -16,6 +16,7 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -59,24 +60,18 @@ class HistoryScreenTest {
     }
 
     @Test
-    fun editingDayOneMarksLaterFeedbackStaleAndShowsTheOnlyRefreshAffordance() {
-        composeRule.setHistoryContent(HistoryUiState(entries = seededEntries()), reduce = { state, event ->
-            when (event) {
-                HistoryEvent.SaveEdit -> state.copy(
-                    entries = state.entries.map { item ->
-                        item.copy(reflection = item.reflection?.copy(isValid = false))
-                    },
-                    edit = null,
-                )
-                else -> event.reduce(state)
-            }
-        })
+    fun staleInsightsRemainVisibleButDirectHistoryToSettingsWithoutRefreshActions() {
+        composeRule.setHistoryContent(HistoryUiState(entries = seededEntries(staleFromDay = 2)))
 
-        composeRule.onNodeWithTag("history-entry-entry-1").performClick()
-        composeRule.onNodeWithText("Edit entry").performClick()
-        composeRule.onNodeWithText("Save changes").performClick()
+        composeRule.onAllNodesWithText("Insights need refresh").assertCountEquals(3)
+        composeRule.onNodeWithText("Go to Settings to refresh insights.").assertIsDisplayed()
+        composeRule.onAllNodes(hasClickAction().and(hasText("Refresh insights"))).assertCountEquals(0)
+
+        composeRule.onNodeWithTag("history-entry-entry-2").performClick()
+
         composeRule.onNodeWithText("Insights need refresh").assertIsDisplayed()
-        composeRule.onNodeWithText("Refresh insights").assertIsDisplayed()
+        composeRule.onNodeWithText("Go to Settings to refresh insights.").assertIsDisplayed()
+        composeRule.onAllNodes(hasClickAction().and(hasText("Refresh insights"))).assertCountEquals(0)
     }
 
     @Test
@@ -138,16 +133,13 @@ class HistoryScreenTest {
     }
 
     @Test
-    fun exportActionIsAvailableForAnEmptyJournalAndCallsOnlyItsExportCallback() {
-        var exportCalls = 0
-        composeRule.setHistoryContent(
-            initialState = HistoryUiState(),
-            onExportJournal = { exportCalls += 1 },
-        )
+    fun historyDoesNotExposeSettingsBackupActions() {
+        composeRule.setHistoryContent(HistoryUiState())
 
-        composeRule.onNodeWithTag(HistoryTestTags.EXPORT).performClick()
-
-        check(exportCalls == 1)
+        composeRule.onAllNodesWithTag(SettingsTestTags.EXPORT_BACKUP).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(SettingsTestTags.IMPORT_BACKUP).assertCountEquals(0)
+        composeRule.onAllNodesWithText("Export local backup").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Import local backup").assertCountEquals(0)
     }
 
     @Test
@@ -179,7 +171,6 @@ class HistoryScreenTest {
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.setHistoryContent(
         initialState: HistoryUiState,
         reduce: (HistoryUiState, HistoryEvent) -> HistoryUiState = { state, event -> event.reduce(state) },
-        onExportJournal: () -> Unit = {},
         fontScale: Float = 1f,
     ) {
         setContent {
@@ -200,10 +191,6 @@ class HistoryScreenTest {
                     onRequestClearAll = { state = state.copy(confirmation = HistoryConfirmation.ClearAll) },
                     onDismissConfirmation = { state = state.copy(confirmation = null) },
                     onConfirmDestructiveAction = { state = reduce(state, HistoryEvent.ConfirmDestructiveAction) },
-                    onRefreshInsights = {},
-                    onExportJournal = onExportJournal,
-                    isExportingJournal = false,
-                    journalExportStatus = null,
                 )
             }
         }

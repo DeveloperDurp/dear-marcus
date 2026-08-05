@@ -60,6 +60,26 @@ class JournalRepositoryTest {
     }
 
     @Test
+    fun saveEntryAndSaveReflection_requireAnExistingEntryAndIncreasingRevision() = runBlocking {
+        val firstEntry = entry(day = 1)
+        val firstReflection = reflection(firstEntry.id, 1)
+
+        assertTrue(runCatching { repository.saveReflection(firstReflection) }.isFailure)
+        assertNull(repository.reflection(firstEntry.id))
+
+        repository.saveEntry(firstEntry)
+        repository.saveReflection(firstReflection)
+
+        assertTrue(
+            runCatching {
+                repository.saveReflection(firstReflection.copy(feedback = "replacement feedback"))
+            }.isFailure,
+        )
+        assertEquals(firstEntry, repository.entry(firstEntry.id))
+        assertEquals(firstReflection, repository.reflection(firstEntry.id))
+    }
+
+    @Test
     fun rawOnlyEarlierEntry_hidesLaterReflectionUntilChronologyIsRepaired() = runBlocking {
         val firstEntry = entry(day = 1)
         val secondEntry = entry(day = 2)

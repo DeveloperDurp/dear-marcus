@@ -104,6 +104,9 @@ interface ReflectionDao {
     @Query("SELECT MAX(memory_revision) FROM reflections")
     suspend fun highestMemoryRevision(): Int?
 
+    @Query("SELECT MAX(memory_revision) FROM reflections WHERE is_valid = 1")
+    suspend fun highestValidMemoryRevision(): Int?
+
     @Query(
         """
         SELECT COUNT(*)

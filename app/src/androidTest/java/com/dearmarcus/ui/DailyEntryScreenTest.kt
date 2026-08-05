@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.dearmarcus.ai.AiReadiness
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -73,7 +74,7 @@ class DailyEntryScreenTest {
     }
 
     @Test
-    fun rendersFeedbackAfterAValidSavedSubmission() {
+    fun bringsReflectedFeedbackIntoViewAfterAValidSavedSubmission() {
         composeRule.setDailyEntryContent(
             onSave = { state ->
                 state.copy(
@@ -85,17 +86,17 @@ class DailyEntryScreenTest {
         composeRule.fillEveryAnswer()
         composeRule.onNodeWithText("Save entry").performScrollTo().performClick()
 
-        composeRule.onNodeWithText("Entry saved.").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Choose the deliberate response.").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Entry saved.").assertIsDisplayed()
+        composeRule.onNodeWithText("Choose the deliberate response.").assertIsDisplayed()
     }
 
     @Test
-    fun rendersUnavailableAiMessageWhileConfirmingTheEntryWasSaved() {
+    fun bringsSavedWithoutReflectionFeedbackIntoViewAfterSubmissionCompletes() {
         composeRule.setDailyEntryContent(
             onSave = { state ->
                 state.copy(
                     submission = DailySubmissionState.SavedWithoutReflection(
-                        "On-device reflection is unavailable. Your entry remains saved; try again from the foreground.",
+                        "On-device reflection is unavailable. Your entry remains saved; retry the saved entry from Settings while the app remains foregrounded.",
                     ),
                 )
             },
@@ -104,14 +105,30 @@ class DailyEntryScreenTest {
         composeRule.fillEveryAnswer()
         composeRule.onNodeWithText("Save entry").performScrollTo().performClick()
 
-        composeRule.onNodeWithText("Entry saved.").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Entry saved.").assertIsDisplayed()
         composeRule.onNodeWithText(
-            "On-device reflection is unavailable. Your entry remains saved; try again from the foreground.",
-        ).performScrollTo().assertIsDisplayed()
+            "On-device reflection is unavailable. Your entry remains saved; retry the saved entry from Settings while the app remains foregrounded.",
+        ).assertIsDisplayed()
     }
 
     @Test
-    fun hidesEntrySavedTextForFailedSubmission() {
+    fun availableAiKeepsReflectionSaveLabelWithoutRenderingSettingsControls() {
+        composeRule.setDailyEntryContent(
+            DailyEntryUiState(
+                whatWentWell = "I listened.",
+                whatWentPoorly = "I rushed.",
+                whatWouldYouDoDifferently = "I will pause.",
+                aiReadiness = AiReadiness.Available,
+            ),
+        )
+
+        composeRule.onNodeWithText("Save entry and create reflection").assertIsEnabled()
+        composeRule.onNodeWithTag("daily-ai-status").assertDoesNotExist()
+        composeRule.onNodeWithText("On-device AI is ready.").assertDoesNotExist()
+    }
+
+    @Test
+    fun bringsSaveFailureFeedbackIntoViewAfterSubmissionCompletes() {
         composeRule.setDailyEntryContent(
             onSave = { state ->
                 state.copy(
@@ -125,7 +142,7 @@ class DailyEntryScreenTest {
         composeRule.fillEveryAnswer()
         composeRule.onNodeWithText("Save entry").performScrollTo().performClick()
 
-        composeRule.onNodeWithText("Could not save today. Please try again.").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Could not save today. Please try again.").assertIsDisplayed()
         composeRule.onNodeWithText("Entry saved.").assertDoesNotExist()
     }
 

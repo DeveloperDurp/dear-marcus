@@ -1,5 +1,6 @@
 package com.dearmarcus.ui
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +23,7 @@ import com.dearmarcus.ai.AiDownloadState
 import com.dearmarcus.ai.AiFailure
 import com.dearmarcus.ai.AiGenerationResult
 import com.dearmarcus.ai.AiReadiness
+import com.dearmarcus.ai.AiUserGuidanceMapper
 import com.dearmarcus.ai.OnDeviceAiClient
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
@@ -54,16 +56,12 @@ class AiStatusScreenTest {
         var readiness by mutableStateOf<AiReadiness>(AiReadiness.Available)
 
         composeRule.setContent {
-            DailyEntryScreen(
-                state = DailyEntryUiState(aiReadiness = readiness),
-                onAnswerChanged = { _, _ -> },
-                onSave = {},
-            )
+            AiSettings(DailyEntryUiState(aiReadiness = readiness))
         }
 
         cases.forEach { (nextReadiness, message) ->
             composeRule.runOnIdle { readiness = nextReadiness }
-            composeRule.onNodeWithTag(DailyEntryTestTags.AI_STATUS).assertIsDisplayed()
+            composeRule.onNodeWithTag(SettingsTestTags.AI_STATUS).assertIsDisplayed()
             composeRule.onNodeWithText(message).assertIsDisplayed()
             when (nextReadiness) {
                 is AiReadiness.Error -> if (nextReadiness.failure == AiFailure.TokenLimit) {
@@ -97,21 +95,11 @@ class AiStatusScreenTest {
     }
 
     @Test
-    fun setupFailure_keepsSaveAvailableWithOnlyForegroundRetry() {
+    fun setupFailureOffersOnlyTheForegroundRetryAction() {
         composeRule.setContent {
-            DailyEntryScreen(
-                state = DailyEntryUiState(
-                    whatWentWell = "I listened.",
-                    whatWentPoorly = "I rushed.",
-                    whatWouldYouDoDifferently = "I will pause.",
-                    aiReadiness = AiReadiness.Error(AiFailure.SetupRequired),
-                ),
-                onAnswerChanged = { _, _ -> },
-                onSave = {},
-            )
+            AiSettings(DailyEntryUiState(aiReadiness = AiReadiness.Error(AiFailure.SetupRequired)))
         }
 
-        composeRule.onNodeWithText("Save entry").assertIsEnabled()
         composeRule.onNodeWithText("Check on-device AI again").assertIsDisplayed()
         composeRule.onAllNodesWithText("Download on-device model").assertCountEquals(0)
     }
@@ -120,11 +108,7 @@ class AiStatusScreenTest {
     fun downloadableStatusRemainsDiscoverableAtOnePointFiveFontScale() {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 1.5f)) {
-                DailyEntryScreen(
-                    state = DailyEntryUiState(aiReadiness = AiReadiness.Downloadable),
-                    onAnswerChanged = { _, _ -> },
-                    onSave = {},
-                )
+                AiSettings(DailyEntryUiState(aiReadiness = AiReadiness.Downloadable))
             }
         }
 
@@ -144,10 +128,8 @@ class AiStatusScreenTest {
 
         composeRule.setContent {
             val state by viewModel.uiState.collectAsStateWithLifecycle()
-            DailyEntryScreen(
-                state = state,
-                onAnswerChanged = viewModel::updateAnswer,
-                onSave = viewModel::submit,
+            AiSettings(
+                dailyState = state,
                 onDownloadModel = viewModel::startModelDownload,
                 onRetryAi = viewModel::refreshAiReadiness,
             )
@@ -175,10 +157,8 @@ class AiStatusScreenTest {
 
         composeRule.setContent {
             val state by viewModel.uiState.collectAsStateWithLifecycle()
-            DailyEntryScreen(
-                state = state,
-                onAnswerChanged = viewModel::updateAnswer,
-                onSave = viewModel::submit,
+            AiSettings(
+                dailyState = state,
                 onDownloadModel = viewModel::startModelDownload,
                 onRetryAi = viewModel::refreshAiReadiness,
             )
@@ -197,18 +177,16 @@ class AiStatusScreenTest {
     }
 
     @Test
-    fun unavailableAndEveryFailureKeepSavedStateAndNeverRenderFeedback() {
+    fun unavailableAndEveryFailureRemainVisibleInSettings() {
         var readiness by mutableStateOf<AiReadiness>(AiReadiness.Unavailable)
         composeRule.setContent {
-            DailyEntryScreen(
-                state = DailyEntryUiState(
+            AiSettings(
+                dailyState = DailyEntryUiState(
                     aiReadiness = readiness,
                     submission = DailySubmissionState.SavedWithoutReflection(
                         "Your entry remains saved; feedback was not created on this device.",
                     ),
                 ),
-                onAnswerChanged = { _, _ -> },
-                onSave = {},
             )
         }
 
@@ -222,11 +200,26 @@ class AiStatusScreenTest {
             AiReadiness.Error(AiFailure.Unexpected),
         ).forEach { nextReadiness ->
             composeRule.runOnIdle { readiness = nextReadiness }
-            composeRule.onNodeWithText("Entry saved.").assertIsDisplayed()
-            composeRule.onNodeWithText("Your entry remains saved; feedback was not created on this device.")
-                .assertIsDisplayed()
-            composeRule.onAllNodesWithText("Reflection").assertCountEquals(0)
+            composeRule.onNodeWithText(AiUserGuidanceMapper.forReadiness(nextReadiness).message).assertIsDisplayed()
         }
+    }
+
+    @Composable
+    private fun AiSettings(
+        dailyState: DailyEntryUiState,
+        onDownloadModel: () -> Unit = {},
+        onRetryAi: () -> Unit = {},
+    ) {
+        SettingsScreen(
+            dailyState = dailyState,
+            state = SettingsUiState(),
+            onDownloadModel = onDownloadModel,
+            onRetryAi = onRetryAi,
+            onReminderEnabledChanged = {},
+            onReminderTimeClick = {},
+            onExportBackup = {},
+            onImportBackup = {},
+        )
     }
 
     private class BlockingDownloadAiClient : OnDeviceAiClient {

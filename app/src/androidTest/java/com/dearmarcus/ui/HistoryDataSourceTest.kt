@@ -3,7 +3,6 @@ package com.dearmarcus.ui
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.dearmarcus.core.RefreshInsightsResult
 import com.dearmarcus.data.JournalDatabase
 import com.dearmarcus.data.JournalEntryRecord
 import com.dearmarcus.data.JournalRepository
@@ -96,7 +95,6 @@ class HistoryDataSourceTest {
 
     private fun source(localDataCleaner: LocalDataCleaner = {}) = RepositoryHistoryDataSource(
         repository = repository,
-        refresh = { RefreshInsightsResult.NoRefreshRequired },
         clock = { Instant.parse("2026-08-04T00:00:00Z") },
         localDataCleaner = localDataCleaner,
     )

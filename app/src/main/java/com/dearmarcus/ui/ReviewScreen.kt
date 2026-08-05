@@ -2,12 +2,10 @@ package com.dearmarcus.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,7 +19,6 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ReviewScreen(
     state: ReviewUiState,
-    onRefreshInsights: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -82,15 +79,11 @@ fun ReviewScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Button(
-                    enabled = !state.isWorking,
-                    onClick = onRefreshInsights,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(ReviewTestTags.REFRESH),
-                ) {
-                    Text("Refresh Insights")
-                }
+                Text(
+                    "Refresh insights in Settings.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 

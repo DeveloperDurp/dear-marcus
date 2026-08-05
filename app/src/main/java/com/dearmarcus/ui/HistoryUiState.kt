@@ -39,7 +39,6 @@ data class HistoryUiState(
 
 object HistoryTestTags {
     const val LIST = "history-list"
-    const val EXPORT = "history-export"
     const val DETAIL = "history-detail"
     const val WENT_WELL = "history-edit-went-well"
     const val WENT_POORLY = "history-edit-went-poorly"

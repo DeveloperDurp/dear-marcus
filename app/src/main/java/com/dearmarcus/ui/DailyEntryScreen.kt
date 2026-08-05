@@ -14,11 +14,9 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,14 +25,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.dearmarcus.ai.AiReadiness
-import com.dearmarcus.ai.AiUserAction
-import com.dearmarcus.ai.AiUserGuidanceMapper
 
 @Composable
 fun DailyEntryScreen(
@@ -46,6 +42,18 @@ fun DailyEntryScreen(
     modifier: Modifier = Modifier,
 ) {
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+    val feedbackBringIntoViewRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(state.submission) {
+        when (state.submission) {
+            DailySubmissionState.Idle,
+            DailySubmissionState.Saving,
+            -> Unit
+            is DailySubmissionState.Reflected,
+            is DailySubmissionState.SavedWithoutReflection,
+            is DailySubmissionState.SaveFailed,
+            -> feedbackBringIntoViewRequester.bringIntoView()
+        }
+    }
     Column(
         modifier = modifier
             .imePadding()
@@ -62,12 +70,6 @@ fun DailyEntryScreen(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        AiStatusFeedback(
-            readiness = state.aiReadiness,
-            onDownloadModel = onDownloadModel,
-            onRetryAi = onRetryAi,
-        )
-
         DailyAnswerField(
             question = DailyQuestion.WENT_WELL,
             label = "What went well today?",
@@ -107,63 +109,8 @@ fun DailyEntryScreen(
             )
         }
 
-        SubmissionFeedback(state.submission)
-    }
-}
-
-@Composable
-private fun AiStatusFeedback(
-    readiness: AiReadiness?,
-    onDownloadModel: () -> Unit,
-    onRetryAi: () -> Unit,
-) {
-    if (readiness == null) return
-
-    val guidance = AiUserGuidanceMapper.forReadiness(readiness)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(DailyEntryTestTags.AI_STATUS),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = "On-device reflection",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        if (readiness == AiReadiness.Downloading) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "On-device model download in progress" },
-            )
-            Text(
-                text = guidance.message,
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        } else {
-            Text(
-                text = guidance.message,
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
-        when (guidance.action) {
-            AiUserAction.DownloadOnDeviceModel -> Button(
-                onClick = onDownloadModel,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Download on-device model")
-            }
-            AiUserAction.RetryInForeground -> TextButton(onClick = onRetryAi) {
-                Text("Check on-device AI again")
-            }
-            AiUserAction.EditEntry -> Text(
-                text = "Shorten an answer, then save again to retry reflection on this device.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            AiUserAction.None,
-            AiUserAction.Generate,
-            -> Unit
+        Column(modifier = Modifier.bringIntoViewRequester(feedbackBringIntoViewRequester)) {
+            SubmissionFeedback(state.submission)
         }
     }
 }

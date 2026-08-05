@@ -1,6 +1,8 @@
 package com.dearmarcus.data
 
 import androidx.room.withTransaction
+import com.dearmarcus.export.JournalBackup
+import com.dearmarcus.export.JournalBackupContract
 
 class JournalRepository(
     private val database: JournalDatabase,
@@ -28,6 +30,61 @@ class JournalRepository(
             }.toMap(),
             activeReflection = reflections.latestValid()?.toRecord(),
         )
+    }
+
+    suspend fun importBackup(backup: JournalBackup): JournalBackupImportSummary {
+        require(JournalBackupContract.validationFailure(backup, requireCanonicalOrder = true) == null) {
+            "Journal backup must contain a valid reflection chronology."
+        }
+
+        return database.withTransaction {
+            val localEntries = entries.entriesOldestFirst().map { it.toRecord() }
+            val localIds = localEntries.mapTo(mutableSetOf()) { it.id }
+            val importedEntries = backup.entries.filter { it.entry.id !in localIds }
+            val reflectionEntries = importedEntries.filter { it.reflection != null }
+            val candidateReflections = reflectionEntries.mapNotNull { it.reflection }
+            val lastLocalEntry = localEntries.lastOrNull()
+            val importedReflections = if (
+                candidateReflections.isNotEmpty() &&
+                importedEntries.all { it.reflection != null } &&
+                reflectionEntries.all { backupEntry ->
+                    lastLocalEntry == null || backupEntry.entry.isAfter(lastLocalEntry)
+                } &&
+                reflections.entriesNeedingReflectionCount() == 0
+            ) {
+                val activeMemory = reflections.latestValid()?.memoryAfter.orEmpty()
+                val highestValidRevision = reflections.highestValidMemoryRevision() ?: 0
+                if (
+                    candidateReflections.first().memoryBefore == activeMemory &&
+                    candidateReflections.all { it.memoryRevision > highestValidRevision }
+                ) {
+                    candidateReflections
+                } else {
+                    emptyList()
+                }
+            } else {
+                emptyList()
+            }
+
+            importedEntries.forEach { entries.insert(it.entry.toEntity()) }
+            importedEntries
+                .filter { importedEntry -> importedReflections.none { it.entryId == importedEntry.entry.id } }
+                .forEach { importedEntry ->
+                    reflections.invalidateAtOrAfterForUnresolvedPredecessor(
+                        localDateTime = importedEntry.entry.localDateTime.toString(),
+                        entryId = importedEntry.entry.id,
+                    )
+                }
+            importedReflections.forEach { reflections.upsert(it.toEntity()) }
+
+            JournalBackupImportSummary(
+                importedEntries = importedEntries.size,
+                skippedEntries = backup.entries.size - importedEntries.size,
+                importedReflections = importedReflections.size,
+                skippedReflections = backup.entries.count { it.entry.id in localIds && it.reflection != null } +
+                    candidateReflections.size - importedReflections.size,
+            )
+        }
     }
 
     suspend fun saveReflection(reflection: ReflectionRecord): ReflectionRecord = database.withTransaction {
@@ -130,3 +187,13 @@ data class JournalExportSnapshot(
     val reflectionsByEntryId: Map<String, ReflectionRecord>,
     val activeReflection: ReflectionRecord?,
 )
+
+data class JournalBackupImportSummary(
+    val importedEntries: Int,
+    val skippedEntries: Int,
+    val importedReflections: Int,
+    val skippedReflections: Int,
+)
+
+private fun JournalEntryRecord.isAfter(other: JournalEntryRecord): Boolean =
+    localDateTime > other.localDateTime || (localDateTime == other.localDateTime && id > other.id)

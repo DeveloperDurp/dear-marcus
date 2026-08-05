@@ -19,9 +19,6 @@ class HistoryReviewViewModelTest {
                 override suspend fun delete(entryId: String): Boolean = false
 
                 override suspend fun clearAll() = Unit
-
-                override suspend fun refreshInsights(): RefreshInsightsResult =
-                    RefreshInsightsResult.NoRefreshRequired
             },
             coroutineDispatcher = Dispatchers.Unconfined,
         )

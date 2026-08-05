@@ -2,13 +2,12 @@ package com.dearmarcus.ui
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -37,24 +36,22 @@ class ReviewScreenTest {
     }
 
     @Test
-    fun allInvalidDerivedDataHasNoCurrentMemoryAndOffersForegroundRefresh() {
-        var refreshCalls = 0
+    fun allInvalidDerivedDataHasNoCurrentMemoryAndDirectsToSettingsWithoutRefresh() {
         composeRule.setReviewContent(
             ReviewUiState(hasInvalidDerivedData = true),
-            onRefreshInsights = { refreshCalls++ },
         )
 
         composeRule.onNodeWithText("No valid review yet").assertIsDisplayed()
         composeRule.onNodeWithText("No valid local review is available yet.").assertIsDisplayed()
+        composeRule.onNodeWithText("Refresh insights in Settings.").assertIsDisplayed()
         composeRule.onAllNodesWithText("Current condensed memory").assertCountEquals(0)
         composeRule.onAllNodesWithText("Latest feedback ·", substring = true).assertCountEquals(0)
-        composeRule.onNodeWithTag(ReviewTestTags.REFRESH).performClick()
-
-        check(refreshCalls == 1)
+        composeRule.onAllNodesWithText("Refresh Insights").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("review-refresh").assertCountEquals(0)
     }
 
     @Test
-    fun invalidatedV3ShowsOnlyTheLastValidV2ReviewAndRefreshAffordance() {
+    fun invalidatedV3ShowsOnlyTheLastValidV2ReviewAndSettingsDirectionWithoutRefresh() {
         composeRule.setReviewContent(
             ReviewUiState(
                 latestValidReflection = reflection(revision = 2),
@@ -66,7 +63,9 @@ class ReviewScreenTest {
         composeRule.onNodeWithText("feedback v2").assertIsDisplayed()
         composeRule.onAllNodesWithText("memory v3").assertCountEquals(0)
         composeRule.onNodeWithText("Showing the last valid local review.").assertIsDisplayed()
-        composeRule.onNodeWithTag(ReviewTestTags.REFRESH).assertIsDisplayed()
+        composeRule.onNodeWithText("Refresh insights in Settings.").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Refresh Insights").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("review-refresh").assertCountEquals(0)
     }
 
     @Test
@@ -92,31 +91,38 @@ class ReviewScreenTest {
                         latestValidReflection = reflection(revision = 2),
                         hasInvalidDerivedData = true,
                     ),
-                    onRefreshInsights = {},
                 )
             }
         }
 
         composeRule.onNodeWithText("Current condensed memory").assertIsDisplayed()
         composeRule.onNodeWithText("memory v2").assertIsDisplayed()
-        composeRule.onNodeWithTag(ReviewTestTags.REFRESH).assertIsDisplayed()
+        composeRule.onNodeWithText("Refresh insights in Settings.").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("review-refresh").assertCountEquals(0)
     }
 
     @Test
-    fun refreshIsDisabledWhileForegroundRefreshIsWorking() {
+    fun workingReviewShowsStaleNoticeAndSettingsDirectionWithoutRefresh() {
         composeRule.setReviewContent(
-            ReviewUiState(hasInvalidDerivedData = true, isWorking = true),
+            ReviewUiState(
+                hasInvalidDerivedData = true,
+                isWorking = true,
+                statusMessage = "Review status remains visible",
+            ),
         )
 
-        composeRule.onNodeWithTag(ReviewTestTags.REFRESH).assertIsNotEnabled()
+        composeRule.onNodeWithText("No valid local review is available yet.").assertIsDisplayed()
+        composeRule.onNodeWithText("Refresh insights in Settings.").assertIsDisplayed()
+        composeRule.onNodeWithText("Review status remains visible").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Refresh Insights").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("review-refresh").assertCountEquals(0)
     }
 
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.setReviewContent(
         state: ReviewUiState,
-        onRefreshInsights: () -> Unit = {},
     ) {
         setContent {
-            ReviewScreen(state = state, onRefreshInsights = onRefreshInsights)
+            ReviewScreen(state = state)
         }
     }
 

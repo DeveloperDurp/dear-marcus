@@ -18,8 +18,15 @@ Dear Marcus uses the ML Kit Prompt API, which is Beta, with Gemini Nano on the d
 - Reflection runs only after a user action while the app is in the foreground. It does not run in the background or retry automatically.
 - If Nano is unavailable, downloading, busy, blocked, or produces unusable output, the journal entry remains saved and the app clearly reports that feedback is unavailable or needs a later manual retry.
 
-## Delete, clear, and export
+## Daily reminders
+
+- Optional daily reminders are scheduled locally with Android's inexact, best-effort alarms. Delivery can be delayed by device and Android power-management conditions; it is not guaranteed at an exact time.
+- Notifications require Android notification permission where applicable. If permission is denied or notifications are blocked, no reminder notification is shown. The app does not request exact-alarm permission.
+
+## Delete, clear, and backup
 
 - Deleting an entry removes its local raw entry and associated derived insight. Editing or deleting an older entry makes later derived insights stale rather than presenting them as current.
 - Clear all data removes the local journal, derived insights, and app-owned cache/preferences; it is a destructive action with confirmation.
-- Export is a user-initiated UTF-8 Markdown document created through Android's system document picker. Dear Marcus does not upload it, choose its destination, import it again, or write it automatically. An exported file may be stored by the destination you choose, so protect it according to that destination's privacy controls.
+- Export creates a user-initiated, versioned UTF-8 JSON local backup through Android's system document picker. Import reads a user-selected JSON backup through the system picker. Dear Marcus does not upload backups, choose their destination, or write them automatically; protect an exported file according to its destination's privacy controls.
+- Backup import is append-only: when an imported entry ID already exists locally, the local entry and its attached reflection win and the backup copy is skipped. Only a valid, contiguous reflection history is restored, so accepted feedback can restore the current memory while stale or invalid reflections cannot.
+- Legacy Markdown exports and imports are not supported.

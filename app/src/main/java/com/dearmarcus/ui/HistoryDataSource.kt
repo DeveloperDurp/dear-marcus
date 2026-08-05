@@ -1,7 +1,6 @@
 package com.dearmarcus.ui
 
 import com.dearmarcus.core.JournalAnswers
-import com.dearmarcus.core.RefreshInsightsResult
 import com.dearmarcus.data.JournalEntryRecord
 import com.dearmarcus.data.JournalRepository
 import com.dearmarcus.data.ReflectionRecord
@@ -25,8 +24,6 @@ interface HistoryDataSource {
     suspend fun delete(entryId: String): Boolean
 
     suspend fun clearAll()
-
-    suspend fun refreshInsights(): RefreshInsightsResult
 }
 
 data class HistoryAnswers(
@@ -37,7 +34,6 @@ data class HistoryAnswers(
 
 class RepositoryHistoryDataSource(
     private val repository: JournalRepository,
-    private val refresh: suspend () -> RefreshInsightsResult,
     private val clock: () -> Instant,
     private val localDataCleaner: LocalDataCleaner = {},
 ) : HistoryDataSource {
@@ -70,6 +66,4 @@ class RepositoryHistoryDataSource(
             throw LocalDataClearIncompleteException(error)
         }
     }
-
-    override suspend fun refreshInsights(): RefreshInsightsResult = refresh()
 }

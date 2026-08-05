@@ -1,9 +1,6 @@
 package com.dearmarcus.ui
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,26 +14,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.dearmarcus.export.JournalMarkdownDocument
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.dearmarcus.data.JournalBackupImportSummary
+import com.dearmarcus.export.JournalBackup
+import com.dearmarcus.export.JournalBackupDecodeResult
+import com.dearmarcus.export.JournalBackupDocument
 
 private enum class DearMarcusDestination(val label: String) {
     DAILY("Daily"),
     HISTORY("History"),
     REVIEW("Review"),
+    SETTINGS("Settings"),
 }
 
 @Composable
@@ -44,19 +38,15 @@ fun DearMarcusRoot(
     viewModel: DailyEntryViewModel,
     historyViewModel: HistoryViewModel,
     reviewViewModel: ReviewViewModel,
-    createJournalExport: suspend () -> JournalMarkdownDocument,
+    createBackupDocument: suspend () -> JournalBackupDocument,
+    decodeBackup: (String) -> JournalBackupDecodeResult,
+    importBackup: suspend (JournalBackup) -> JournalBackupImportSummary,
+    settingsState: SettingsUiState,
+    onReminderEnabledChanged: (Boolean) -> Unit,
+    onReminderTimeClick: () -> Unit,
 ) {
     var destination by rememberSaveable { mutableStateOf(DearMarcusDestination.DAILY) }
-    var pendingJournalExportFileName by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingJournalExportMarkdown by rememberSaveable { mutableStateOf<String?>(null) }
-    var isExportingJournal by rememberSaveable { mutableStateOf(false) }
-    var journalExportStatus by remember { mutableStateOf<String?>(null) }
-    val pendingJournalExport = PendingJournalMarkdownExport(
-        pendingJournalExportFileName,
-        pendingJournalExportMarkdown,
-    ).document
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
+    val backupActions = rememberBackupDocumentActions(createBackupDocument, decodeBackup, importBackup)
     val dailyState by viewModel.uiState.collectAsStateWithLifecycle()
     val historyState by historyViewModel.uiState.collectAsStateWithLifecycle()
     val reviewState by reviewViewModel.uiState.collectAsStateWithLifecycle()
@@ -64,34 +54,6 @@ fun DearMarcusRoot(
         enabled = destination == DearMarcusDestination.HISTORY && historyState.selectedEntry != null,
         onBack = historyViewModel::closeDetail,
     )
-    val createDocumentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        val document = pendingJournalExport
-        coroutineScope.launch {
-            try {
-                val saveResult = withContext(Dispatchers.IO) {
-                    if (result.resultCode != Activity.RESULT_OK) {
-                        JournalMarkdownSaveResult.Cancelled
-                    } else {
-                        saveJournalMarkdownDocument(result.data?.data, document) { uri ->
-                            context.contentResolver.openOutputStream(uri)
-                        }
-                    }
-                }
-                journalExportStatus = when (saveResult) {
-                    JournalMarkdownSaveResult.Saved -> "Markdown export saved."
-                    JournalMarkdownSaveResult.Failed -> "Markdown export could not be saved."
-                    JournalMarkdownSaveResult.Cancelled -> null
-                }
-            } finally {
-                pendingJournalExportFileName = null
-                pendingJournalExportMarkdown = null
-                isExportingJournal = false
-            }
-        }
-    }
-
     Scaffold(
         bottomBar = {
             TabRow(
@@ -143,43 +105,32 @@ fun DearMarcusRoot(
                     onRequestClearAll = historyViewModel::requestClearAll,
                     onDismissConfirmation = historyViewModel::dismissConfirmation,
                     onConfirmDestructiveAction = historyViewModel::confirmDestructiveAction,
-                    onRefreshInsights = historyViewModel::refreshInsights,
-                    onExportJournal = {
-                        if (!isExportingJournal) {
-                            isExportingJournal = true
-                            journalExportStatus = null
-                            coroutineScope.launch {
-                                try {
-                                    val document = createJournalExport()
-                                    val pending = PendingJournalMarkdownExport.from(document)
-                                    pendingJournalExportFileName = pending.fileName
-                                    pendingJournalExportMarkdown = pending.markdown
-                                    createDocumentLauncher.launch(
-                                        createJournalMarkdownDocumentIntent(document.fileName),
-                                    )
-                                } catch (error: CancellationException) {
-                                    pendingJournalExportFileName = null
-                                    pendingJournalExportMarkdown = null
-                                    isExportingJournal = false
-                                    throw error
-                                } catch (_: Exception) {
-                                    pendingJournalExportFileName = null
-                                    pendingJournalExportMarkdown = null
-                                    isExportingJournal = false
-                                    journalExportStatus = "Markdown export could not be prepared."
-                                }
-                            }
-                        }
-                    },
-                    isExportingJournal = isExportingJournal,
-                    journalExportStatus = journalExportStatus,
                     modifier = Modifier
                         .fillMaxWidth()
                         .widthIn(max = 600.dp),
                 )
                 DearMarcusDestination.REVIEW -> ReviewScreen(
                     state = reviewState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 600.dp),
+                )
+                DearMarcusDestination.SETTINGS -> SettingsScreen(
+                    dailyState = dailyState,
+                    state = settingsState.copy(
+                        exportStatus = backupActions.exportStatus,
+                        importStatus = backupActions.importStatus,
+                        needsInsightsRefresh = reviewState.needsRefresh,
+                        isRefreshingInsights = reviewState.isWorking,
+                        insightsRefreshStatusMessage = reviewState.statusMessage,
+                    ),
+                    onDownloadModel = viewModel::startModelDownload,
+                    onRetryAi = viewModel::refreshAiReadiness,
                     onRefreshInsights = reviewViewModel::refreshInsights,
+                    onReminderEnabledChanged = onReminderEnabledChanged,
+                    onReminderTimeClick = onReminderTimeClick,
+                    onExportBackup = backupActions.export,
+                    onImportBackup = backupActions.import,
                     modifier = Modifier
                         .fillMaxWidth()
                         .widthIn(max = 600.dp),

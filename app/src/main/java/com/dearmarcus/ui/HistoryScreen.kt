@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,10 +33,6 @@ fun HistoryScreen(
     onRequestClearAll: () -> Unit,
     onDismissConfirmation: () -> Unit,
     onConfirmDestructiveAction: () -> Unit,
-    onRefreshInsights: () -> Unit,
-    onExportJournal: () -> Unit,
-    isExportingJournal: Boolean,
-    journalExportStatus: String?,
     modifier: Modifier = Modifier,
 ) {
     val selected = state.selectedEntry
@@ -46,10 +41,6 @@ fun HistoryScreen(
             state = state,
             onSelect = onSelect,
             onRequestClearAll = onRequestClearAll,
-            onRefreshInsights = onRefreshInsights,
-            onExportJournal = onExportJournal,
-            isExportingJournal = isExportingJournal,
-            journalExportStatus = journalExportStatus,
             modifier = modifier,
         )
     } else {
@@ -64,7 +55,6 @@ fun HistoryScreen(
             onSaveEdit = onSaveEdit,
             onCancelEdit = onCancelEdit,
             onRequestDelete = onRequestDelete,
-            onRefreshInsights = onRefreshInsights,
             modifier = modifier,
         )
     }
@@ -76,10 +66,6 @@ private fun HistoryList(
     state: HistoryUiState,
     onSelect: (String) -> Unit,
     onRequestClearAll: () -> Unit,
-    onRefreshInsights: () -> Unit,
-    onExportJournal: () -> Unit,
-    isExportingJournal: Boolean,
-    journalExportStatus: String?,
     modifier: Modifier,
 ) {
     LazyColumn(
@@ -89,15 +75,6 @@ private fun HistoryList(
     ) {
         item {
             Text("History", style = MaterialTheme.typography.headlineMedium)
-        }
-        item {
-            Button(
-                enabled = !state.isWorking && !isExportingJournal,
-                onClick = onExportJournal,
-                modifier = Modifier.testTag(HistoryTestTags.EXPORT),
-            ) {
-                Text(if (isExportingJournal) "Preparing export…" else "Export journal as Markdown")
-            }
         }
         if (state.hasStaleInsights) {
             item {
@@ -112,16 +89,15 @@ private fun HistoryList(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Button(enabled = !state.isWorking, onClick = onRefreshInsights) {
-                        Text("Refresh insights")
-                    }
+                    Text(
+                        "Go to Settings to refresh insights.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
         state.statusMessage?.let { message ->
-            item { Text(message, style = MaterialTheme.typography.bodyLarge) }
-        }
-        journalExportStatus?.let { message ->
             item { Text(message, style = MaterialTheme.typography.bodyLarge) }
         }
         if (state.entries.isEmpty() && !state.isWorking) {

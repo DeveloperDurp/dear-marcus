@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
@@ -191,6 +192,126 @@ class SubmitJournalTest {
     }
 
     @Test
+    fun savedWithoutReflection_failureMessages_distinguishRetryableFailuresFromInputTooLarge() = runBlocking {
+        val retryableCases = listOf(
+            ReflectionFailure.CLIENT_UNAVAILABLE to
+                "On-device reflection is unavailable. Your entry remains saved; retry the saved entry from Settings while the app remains foregrounded.",
+            ReflectionFailure.INVALID_OUTPUT to
+                "On-device reflection returned unusable output. Your entry remains saved; retry the saved entry from Settings while the app remains foregrounded.",
+        )
+
+        retryableCases.forEach { (failure, expectedMessage) ->
+            val submit = SubmitJournal(
+                store = FakeJournalInsightStore(),
+                reflectionGenerator = when (failure) {
+                    ReflectionFailure.CLIENT_UNAVAILABLE -> ReflectionGenerator(
+                        ScriptedJournalAiClient(listOf({ JournalAiResponse.Failure })),
+                        FixedTokenCounter(),
+                    )
+                    ReflectionFailure.INVALID_OUTPUT -> ReflectionGenerator(
+                        ScriptedJournalAiClient(listOf({ JournalAiResponse.Success("not json") })),
+                        FixedTokenCounter(),
+                    )
+                    else -> error("Unexpected failure case: $failure")
+                },
+                idGenerator = ScriptedJournalIdGenerator(listOf("entry-${failure}")),
+                clock = FixedJournalClock(),
+            )
+
+            val result = submit.submit(
+                localDateTime = LocalDateTime.of(2026, 8, 1, 18, 30),
+                whatWentWell = "well",
+                whatWentPoorly = "poorly",
+                whatWouldYouDoDifferently = "differently",
+            )
+
+            val savedWithoutReflection = result as SubmitJournalResult.SavedWithoutReflection
+            assertEquals("${failure.name} should remain saved without reflection", failure, savedWithoutReflection.failure)
+            assertEquals(expectedMessage, savedWithoutReflection.failure.userMessage)
+            assertTrue(
+                "${failure.name} should still guide users to Settings",
+                savedWithoutReflection.failure.userMessage.contains("Settings"),
+            )
+        }
+
+        val entryChangedEntry = JournalEntry.create(
+            { "entry-${ReflectionFailure.ENTRY_CHANGED}" },
+            FixedJournalClock(),
+            LocalDateTime.of(2026, 8, 3, 18, 30),
+            JournalAnswers.of("well", "poorly", "differently"),
+        )
+        val entryChangedStore = FakeJournalInsightStoreAllowingOverwrite(
+            entryChangedEntry,
+            successfulReflection(
+                entryChangedEntry,
+                "prior feedback",
+                "memory-before",
+                "memory-after",
+                1,
+            ),
+        )
+        val entryChangedSubmit = SubmitJournal(
+            store = entryChangedStore,
+            reflectionGenerator = ReflectionGenerator(
+                ScriptedJournalAiClient(listOf({ validResponse("entry changed feedback", "entry changed memory") })),
+                FixedTokenCounter(),
+            ),
+            idGenerator = ScriptedJournalIdGenerator(listOf("entry-${ReflectionFailure.ENTRY_CHANGED}")),
+            clock = FixedJournalClock(),
+        )
+
+        val entryChangedResult = entryChangedSubmit.submit(
+            localDateTime = LocalDateTime.of(2026, 8, 3, 18, 30),
+            whatWentWell = "well",
+            whatWentPoorly = "poorly",
+            whatWouldYouDoDifferently = "differently",
+        )
+
+        val entryChangedNoReflection = entryChangedResult as SubmitJournalResult.SavedWithoutReflection
+        assertEquals(
+            ReflectionFailure.ENTRY_CHANGED,
+            entryChangedNoReflection.failure,
+        )
+        assertEquals(
+            "The entry changed before feedback could be saved. Your latest answers remain saved; retry the saved entry from Settings while the app remains foregrounded.",
+            entryChangedNoReflection.failure.userMessage,
+        )
+        assertTrue(
+            "ENTRY_CHANGED should still guide users to Settings",
+            entryChangedNoReflection.failure.userMessage.contains("Settings"),
+        )
+
+        val submit = SubmitJournal(
+            store = FakeJournalInsightStore(),
+            reflectionGenerator = ReflectionGenerator(
+                ScriptedJournalAiClient(actions = emptyList()),
+                FixedTokenCounter(4_000),
+            ),
+            idGenerator = ScriptedJournalIdGenerator(listOf("entry-large")),
+            clock = FixedJournalClock(),
+        )
+
+        val result = submit.submit(
+            localDateTime = LocalDateTime.of(2026, 8, 2, 18, 30),
+            whatWentWell = "well",
+            whatWentPoorly = "poorly",
+            whatWouldYouDoDifferently = "differently",
+        )
+
+        assertEquals(SubmitJournalResult.SavedWithoutReflection::class, result::class)
+        val savedWithoutReflection = result as SubmitJournalResult.SavedWithoutReflection
+        assertEquals(ReflectionFailure.INPUT_TOO_LARGE, savedWithoutReflection.failure)
+        assertEquals(
+            "Reflection was not generated because the on-device input is too large. Edit the entry to shorten it, then save again.",
+            savedWithoutReflection.failure.userMessage,
+        )
+        assertFalse(
+            "Input size failures should not send users to Settings",
+            savedWithoutReflection.failure.userMessage.contains("Settings"),
+        )
+    }
+
+    @Test
     fun overBudgetReflection_keepsTheFullPersistedAnswer() = runBlocking {
         val fullAnswer = "a".repeat(600)
         val store = FakeJournalInsightStore()
@@ -225,6 +346,37 @@ class SubmitJournalTest {
         val failure: ReflectionFailure,
         val generator: ReflectionGenerator,
     )
+
+    private class FakeJournalInsightStoreAllowingOverwrite(
+        private val entry: JournalEntry,
+        private val reflection: Reflection,
+    ) : JournalInsightStore {
+        private val delegate = FakeJournalInsightStore().apply {
+            seed(entry, reflection)
+        }
+
+        override suspend fun saveEntry(entry: JournalEntry) {
+            delegate.replaceEntry(entry)
+        }
+
+        override suspend fun entriesOldestFirst(): List<JournalEntry> = delegate.entriesOldestFirst()
+
+        override suspend fun reflectionFor(entryId: String): Reflection? = delegate.reflectionFor(entryId)
+
+        override suspend fun invalidateReflectionsAtOrAfter(entry: JournalEntry) {
+            delegate.invalidateReflectionsAtOrAfter(entry)
+        }
+
+        override suspend fun latestValidReflectionBefore(entry: JournalEntry): Reflection? =
+            delegate.latestValidReflectionBefore(entry)
+
+        override suspend fun highestMemoryRevision(): Int = delegate.highestMemoryRevision()
+
+        override suspend fun saveReflectionIfEntryUnchanged(
+            entry: JournalEntry,
+            reflection: Reflection,
+        ): Boolean = delegate.saveReflectionIfEntryUnchanged(entry, reflection)
+    }
 
     private class UnavailableOnDeviceAiClient : OnDeviceAiClient {
         var generateCalls = 0

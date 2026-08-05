@@ -2,7 +2,6 @@ package com.dearmarcus.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.dearmarcus.core.RefreshInsightsResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -110,18 +109,6 @@ class HistoryViewModel(
                 )
             }
             null -> Unit
-        }
-    }
-
-    fun refreshInsights() {
-        if (!mutableUiState.value.hasStaleInsights) return
-        launchMutation { state ->
-            val message = when (dataSource.refreshInsights()) {
-                is RefreshInsightsResult.Completed -> "Insights refreshed."
-                RefreshInsightsResult.NoRefreshRequired -> "Insights are already current."
-                is RefreshInsightsResult.Stopped -> "Insights refresh stopped. Your entries remain saved."
-            }
-            state.copy(entries = dataSource.entriesNewestFirst(), statusMessage = message)
         }
     }
 
