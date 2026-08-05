@@ -80,6 +80,42 @@ class JournalRepositoryTest {
     }
 
     @Test
+    fun saveReflectionIfEntryUnchanged_withSubMillisecondUpdatedAt_canPersistReflection() = runBlocking {
+        val entry = JournalEntryRecord(
+            id = "entry-1",
+            localDateTime = LocalDateTime.of(2026, 8, 1, 10, 0),
+            wentWell = "well",
+            wentPoorly = "poorly",
+            doDifferently = "differently",
+            updatedAt = Instant.parse("2026-08-01T10:00:00.123456789Z"),
+        )
+        val reflection = reflection(entry.id, 1)
+
+        repository.saveEntry(entry)
+
+        assertTrue(repository.saveReflectionIfEntryUnchanged(entry, reflection))
+        assertEquals(reflection, repository.reflection(entry.id))
+    }
+
+    @Test
+    fun saveReflectionIfEntryUnchanged_rejectsWhenEntryWasEditedInterveningly() = runBlocking {
+        val entry = entry(day = 1)
+        repository.saveEntry(entry)
+
+        assertTrue(
+            repository.editEntry(
+                entry.copy(
+                    wentWell = "revised answer",
+                    updatedAt = Instant.parse("2026-08-01T10:00:00.456Z"),
+                ),
+            ),
+        )
+
+        assertFalse(repository.saveReflectionIfEntryUnchanged(entry, reflection(entry.id, 1)))
+        assertNull(repository.reflection(entry.id))
+    }
+
+    @Test
     fun rawOnlyEarlierEntry_hidesLaterReflectionUntilChronologyIsRepaired() = runBlocking {
         val firstEntry = entry(day = 1)
         val secondEntry = entry(day = 2)

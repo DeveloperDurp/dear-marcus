@@ -104,7 +104,7 @@ class JournalRepository(
         reflection: ReflectionRecord,
     ): Boolean = database.withTransaction {
         val currentEntry = entries.findById(entry.id) ?: return@withTransaction false
-        if (currentEntry.toRecord() != entry) return@withTransaction false
+        if (currentEntry != entry.toEntity()) return@withTransaction false
 
         val currentReflection = reflections.findByEntryId(reflection.entryId)
         if (currentReflection?.isValid == true) return@withTransaction false
