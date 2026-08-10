@@ -2,6 +2,7 @@ package com.dearmarcus.ui
 
 import android.content.Intent
 import android.net.Uri
+import com.dearmarcus.export.JournalBackupContract
 import com.dearmarcus.export.JournalBackupDocument
 import java.io.IOException
 import java.io.InputStream
@@ -78,7 +79,22 @@ fun readJournalBackupDocument(
     return try {
         val input = openInputStream(uri) ?: return JournalBackupReadResult.Failed
         InputStreamReader(input, Charsets.UTF_8).use { reader ->
-            JournalBackupReadResult.Read(reader.readText())
+            val content = StringBuilder()
+            val buffer = CharArray(DEFAULT_BUFFER_SIZE)
+            while (content.length < JournalBackupContract.MAXIMUM_DOCUMENT_CHARACTERS) {
+                val charactersRead = reader.read(
+                    buffer,
+                    0,
+                    minOf(buffer.size, JournalBackupContract.MAXIMUM_DOCUMENT_CHARACTERS - content.length),
+                )
+                if (charactersRead == -1) return@use JournalBackupReadResult.Read(content.toString())
+                content.append(buffer, 0, charactersRead)
+            }
+            if (reader.read() == -1) {
+                JournalBackupReadResult.Read(content.toString())
+            } else {
+                JournalBackupReadResult.Failed
+            }
         }
     } catch (_: IOException) {
         JournalBackupReadResult.Failed

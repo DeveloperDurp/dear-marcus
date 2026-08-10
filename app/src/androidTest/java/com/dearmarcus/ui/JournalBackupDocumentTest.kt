@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.dearmarcus.export.JournalBackupDocument
 import com.dearmarcus.export.JournalBackupCodec
+import com.dearmarcus.export.JournalBackupContract
 import com.dearmarcus.export.JournalBackupDecodeResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -105,6 +106,17 @@ class JournalBackupDocumentTest {
         check(unsupportedVersion is JournalBackupReadResult.Read)
         check(JournalBackupCodec().decode(malformed.content) is JournalBackupDecodeResult.Failure)
         check(JournalBackupCodec().decode(unsupportedVersion.content) is JournalBackupDecodeResult.Failure)
+    }
+
+    @Test
+    fun oversizedDocumentIsRejectedWhileReading() {
+        val content = "x".repeat(JournalBackupContract.MAXIMUM_DOCUMENT_CHARACTERS + 1)
+
+        val result = readJournalBackupDocument(Uri.parse("content://test/oversized")) {
+            content.byteInputStream()
+        }
+
+        assertEquals(JournalBackupReadResult.Failed, result)
     }
 
     @Test

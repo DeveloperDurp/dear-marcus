@@ -10,6 +10,9 @@ import java.time.ZoneOffset
 internal object JournalBackupContract {
     const val FORMAT = "dear-marcus.local-backup"
     const val VERSION = 1
+    const val MAXIMUM_DOCUMENT_CHARACTERS = 8 * 1024 * 1024
+    const val MAXIMUM_ENTRIES = 1_000
+    const val MAXIMUM_JSON_NESTING_DEPTH = 32
     private const val MAXIMUM_ENTRY_ID_CODE_POINTS = 128
 
     fun fileName(backup: JournalBackup): String =

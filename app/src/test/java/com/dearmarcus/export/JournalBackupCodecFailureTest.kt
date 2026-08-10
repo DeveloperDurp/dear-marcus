@@ -17,6 +17,29 @@ class JournalBackupCodecFailureTest {
     }
 
     @Test
+    fun rejectsPayloadBeforeParsingWhenItExceedsTheDocumentLimit() {
+        val oversizedPayload = "x".repeat(JournalBackupContract.MAXIMUM_DOCUMENT_CHARACTERS + 1)
+
+        assertEquals(JournalBackupDecodeFailure.InvalidBackup("$"), decodeFailure(oversizedPayload))
+    }
+
+    @Test
+    fun rejectsTooManyEntriesBeforeMaterializingTheBackupList() {
+        val entries = List(JournalBackupContract.MAXIMUM_ENTRIES + 1) { "{}" }.joinToString(",")
+        val payload = """{"format":"dear-marcus.local-backup","version":1,"exportedAtEpochMillis":0,"entries":[$entries]}"""
+
+        assertEquals(JournalBackupDecodeFailure.InvalidBackup("$.entries"), decodeFailure(payload))
+    }
+
+    @Test
+    fun rejectsExcessiveJsonNestingBeforeParsing() {
+        val nesting = JournalBackupContract.MAXIMUM_JSON_NESTING_DEPTH + 1
+        val payload = "[".repeat(nesting) + "]".repeat(nesting)
+
+        assertEquals(JournalBackupDecodeFailure.InvalidBackup("$"), decodeFailure(payload))
+    }
+
+    @Test
     fun rejectsUnsupportedVersionBeforeAcceptingItsEntries() {
         assertEquals(JournalBackupDecodeFailure.UnsupportedVersion(2), decodeFailure(validPayload.replace("\"version\":1", "\"version\":2")))
     }
