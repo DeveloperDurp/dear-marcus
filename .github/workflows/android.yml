@@ -38,16 +38,6 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn
 
-      - name: Upload nightly APK
-        if: >-
-          always() && (github.event_name == 'schedule' || github.ref == 'refs/heads/main')
-        uses: actions/upload-artifact@v4
-        with:
-          name: dearmarcus-nightly-${{ github.sha }}
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: warn
-          retention-days: 7
-
       - name: Upload lint and unit-test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -92,18 +82,39 @@ jobs:
           fi
           printf 'package_version=%s\n' "${TAG#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Assemble tagged debug APK
+      - name: Configure release signing
+        shell: bash
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          for variable in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            if [[ -z "${!variable}" ]]; then
+              echo "::error::Required release-signing secret ${variable} is not configured."
+              exit 1
+            fi
+          done
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Assemble tagged release APK
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
 
       - name: Upload tagged APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dearmarcus-${{ github.ref_name }}-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: warn
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
 
       - name: Publish APK to GitHub Packages
         env:
@@ -111,6 +122,10 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           ./gradlew publishReleaseApkPublicationToGitHubPackagesRepository \
             -PpackageVersion="$PACKAGE_VERSION"
@@ -157,10 +172,39 @@ jobs:
 
           echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
 
-      - name: Assemble debug APK
+      - name: Configure release signing
+        shell: bash
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          for variable in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            if [[ -z "${!variable}" ]]; then
+              echo "::error::Required release-signing secret ${variable} is not configured."
+              exit 1
+            fi
+          done
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Assemble release APK
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
+
+      - name: Upload nightly APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dearmarcus-nightly-${{ github.sha }}
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Publish nightly APK to GitHub Packages
         env:
@@ -168,6 +212,10 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           echo "Publishing com.dearmarcus:dear-marcus:${PACKAGE_VERSION} to GitHub Packages."
           echo "Coordinates: com.dearmarcus:dear-marcus:${PACKAGE_VERSION}"
