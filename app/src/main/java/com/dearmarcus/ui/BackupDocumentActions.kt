@@ -9,7 +9,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.dearmarcus.data.JournalBackupImportSummary
@@ -88,10 +87,12 @@ internal fun rememberBackupDocumentActions(
     decode: (String) -> JournalBackupDecodeResult,
     importBackup: suspend (JournalBackup) -> JournalBackupImportSummary,
 ): BackupDocumentActions {
-    var pendingFileName by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingContent by rememberSaveable { mutableStateOf<String?>(null) }
-    var isExporting by rememberSaveable { mutableStateOf(false) }
-    var isImporting by rememberSaveable { mutableStateOf(false) }
+    // Backup contents can include every journal entry, so keep the in-flight document in
+    // process memory rather than Android's saved-instance-state Bundle.
+    var pendingFileName by remember { mutableStateOf<String?>(null) }
+    var pendingContent by remember { mutableStateOf<String?>(null) }
+    var isExporting by remember { mutableStateOf(false) }
+    var isImporting by remember { mutableStateOf(false) }
     var exportStatus by remember { mutableStateOf<SettingsBackupStatus>(SettingsBackupStatus.Idle) }
     val importCoordinator = remember { BackupImportCoordinator(decode, importBackup) }
     val pendingDocument = PendingJournalBackupExport(pendingFileName, pendingContent).document

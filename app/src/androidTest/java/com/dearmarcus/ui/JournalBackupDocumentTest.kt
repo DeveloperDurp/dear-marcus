@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -14,7 +13,6 @@ import com.dearmarcus.export.JournalBackupCodec
 import com.dearmarcus.export.JournalBackupDecodeResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -108,14 +106,14 @@ class JournalBackupDocumentTest {
     }
 
     @Test
-    fun preparedExportStateRestoresExactUtf8DocumentAfterActivityRecreation() {
+    fun preparedExportStateIsDiscardedAfterActivityRecreation() {
         val restorationTester = StateRestorationTester(composeRule)
         var prepareExport: (() -> Unit)? = null
         var recreatedDocument: JournalBackupDocument? = null
 
         restorationTester.setContent {
-            var fileName by rememberSaveable { mutableStateOf<String?>(null) }
-            var content by rememberSaveable { mutableStateOf<String?>(null) }
+            var fileName by remember { mutableStateOf<String?>(null) }
+            var content by remember { mutableStateOf<String?>(null) }
             prepareExport = {
                 val pending = PendingJournalBackupExport.from(document)
                 fileName = pending.fileName
@@ -126,15 +124,7 @@ class JournalBackupDocumentTest {
         composeRule.runOnIdle { requireNotNull(prepareExport).invoke() }
         restorationTester.emulateSavedInstanceStateRestore()
 
-        val output = ByteArrayOutputStream()
-
-        assertNotNull(recreatedDocument)
-        assertEquals(
-            JournalBackupSaveResult.Saved,
-            saveJournalBackupDocument(Uri.parse("content://test/recreated"), recreatedDocument) { output },
-        )
-        assertEquals(document.fileName, recreatedDocument?.fileName)
-        assertEquals(document.content.toByteArray(Charsets.UTF_8).toList(), output.toByteArray().toList())
+        assertEquals(null, recreatedDocument)
     }
 
     @Test
@@ -147,9 +137,9 @@ class JournalBackupDocumentTest {
         val savedContent = AtomicReference<String?>(null)
 
         restorationTester.setContent {
-            var pendingJournalExportFileName by rememberSaveable { mutableStateOf<String?>(null) }
-            var pendingJournalExportContent by rememberSaveable { mutableStateOf<String?>(null) }
-            var isExportingJournal by rememberSaveable { mutableStateOf(false) }
+            var pendingJournalExportFileName by remember { mutableStateOf<String?>(null) }
+            var pendingJournalExportContent by remember { mutableStateOf<String?>(null) }
+            var isExportingJournal by remember { mutableStateOf(false) }
 
             prepareExport = {
                 val pending = PendingJournalBackupExport.from(document)
@@ -180,8 +170,9 @@ class JournalBackupDocumentTest {
         restorationTester.emulateSavedInstanceStateRestore()
 
         composeRule.waitForIdle()
-        assertEquals(document.fileName, savedFileName.get())
-        assertEquals(document.content, savedContent.get())
+        assertEquals(null, savedFileName.get())
+        assertEquals(null, savedContent.get())
+        assertFalse(exportBusy.get())
 
         composeRule.runOnIdle {
             completeActivityResult?.invoke()
