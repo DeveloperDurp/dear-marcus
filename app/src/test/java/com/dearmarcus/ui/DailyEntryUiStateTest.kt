@@ -1,6 +1,5 @@
 package com.dearmarcus.ui
 
-import androidx.lifecycle.SavedStateHandle
 import com.dearmarcus.ai.AiDownloadState
 import com.dearmarcus.ai.AiReadiness
 import com.dearmarcus.ai.OnDeviceAiClient
@@ -42,30 +41,28 @@ class DailyEntryUiStateTest {
     }
 
     @Test
-    fun draftRestoresFromSavedStateHandleWithoutSubmittingAnEntry() {
-        val savedStateHandle = SavedStateHandle()
+    fun draftRemainsOnlyInTheCurrentViewModel() {
         val submitter = DailyJournalSubmitter { _, _, _ ->
-            error("Draft restoration must not submit an entry.")
+            error("Editing a draft must not submit an entry.")
         }
-        val original = DailyEntryViewModel(savedStateHandle, submitter)
+        val original = DailyEntryViewModel(submitter)
 
         original.updateAnswer(DailyQuestion.WENT_WELL, "I listened carefully.")
         original.updateAnswer(DailyQuestion.WENT_POORLY, "I interrupted.")
         original.updateAnswer(DailyQuestion.DO_DIFFERENTLY, "I will pause first.")
 
-        val restored = DailyEntryViewModel(savedStateHandle, submitter)
+        val recreated = DailyEntryViewModel(submitter)
 
-        assertEquals("I listened carefully.", restored.uiState.value.whatWentWell)
-        assertEquals("I interrupted.", restored.uiState.value.whatWentPoorly)
-        assertEquals("I will pause first.", restored.uiState.value.whatWouldYouDoDifferently)
-        assertTrue(restored.uiState.value.allAnswersAreValid)
+        assertEquals("I listened carefully.", original.uiState.value.whatWentWell)
+        assertEquals("", recreated.uiState.value.whatWentWell)
+        assertEquals("", recreated.uiState.value.whatWentPoorly)
+        assertEquals("", recreated.uiState.value.whatWouldYouDoDifferently)
     }
 
     @Test
     fun cancellationRestoresDraftAndAllowsASuccessfulResubmit() {
         var attempts = 0
         val viewModel = DailyEntryViewModel(
-            savedStateHandle = SavedStateHandle(),
             submitter = DailyJournalSubmitter { _, _, _ ->
                 attempts += 1
                 if (attempts == 1) throw CancellationException("interrupted")
@@ -111,7 +108,6 @@ class DailyEntryUiStateTest {
             override suspend fun generate(prompt: String) = error("Download test must not generate feedback.")
         }
         val viewModel = DailyEntryViewModel(
-            savedStateHandle = SavedStateHandle(),
             submitter = DailyJournalSubmitter { _, _, _ -> error("Download test must not submit.") },
             aiClient = aiClient,
             coroutineDispatcher = Dispatchers.Unconfined,
@@ -141,7 +137,6 @@ class DailyEntryUiStateTest {
             override suspend fun generate(prompt: String) = error("Download test must not generate feedback.")
         }
         val viewModel = DailyEntryViewModel(
-            savedStateHandle = SavedStateHandle(),
             submitter = DailyJournalSubmitter { _, _, _ -> error("Download test must not submit.") },
             aiClient = aiClient,
             coroutineDispatcher = Dispatchers.Unconfined,
@@ -166,9 +161,7 @@ class DailyEntryUiStateTest {
     @Test
     fun editDuringSubmitIsRejectedAndCompletionClearsOnlySubmittedDraft() {
         val submissionRelease = CompletableDeferred<SubmitJournalResult>()
-        val savedStateHandle = SavedStateHandle()
         val viewModel = DailyEntryViewModel(
-            savedStateHandle = savedStateHandle,
             submitter = DailyJournalSubmitter { _, _, _ -> submissionRelease.await() },
             coroutineDispatcher = Dispatchers.Unconfined,
         )
@@ -181,7 +174,6 @@ class DailyEntryUiStateTest {
 
         assertEquals(DailySubmissionState.Saving, viewModel.uiState.value.submission)
         assertEquals("I listened.", viewModel.uiState.value.whatWentWell)
-        assertEquals("I listened.", savedStateHandle.get<String>("daily-entry-went-well"))
 
         submissionRelease.complete(
             SubmitJournalResult.SavedWithoutReflection(
@@ -197,6 +189,5 @@ class DailyEntryUiStateTest {
 
         assertTrue(viewModel.uiState.value.submission is DailySubmissionState.SavedWithoutReflection)
         assertEquals("", viewModel.uiState.value.whatWentWell)
-        assertEquals(null, savedStateHandle.get<String>("daily-entry-went-well"))
     }
 }

@@ -16,7 +16,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.dearmarcus.ai.AiDownloadState
@@ -121,7 +120,6 @@ class AiStatusScreenTest {
     fun downloadableOffersTheOnlyDownloadActionAndRapidTapsStartOneRequest() {
         val aiClient = BlockingDownloadAiClient()
         val viewModel = DailyEntryViewModel(
-            savedStateHandle = SavedStateHandle(),
             submitter = DailyJournalSubmitter { _, _, _ -> error("Download does not submit an entry.") },
             aiClient = aiClient,
         )
@@ -150,7 +148,6 @@ class AiStatusScreenTest {
     fun staleAvailabilityResultDoesNotReplaceDownloadingUiState() {
         val aiClient = BlockingDownloadAiClient()
         val viewModel = DailyEntryViewModel(
-            savedStateHandle = SavedStateHandle(),
             submitter = DailyJournalSubmitter { _, _, _ -> error("Download does not submit an entry.") },
             aiClient = aiClient,
         )

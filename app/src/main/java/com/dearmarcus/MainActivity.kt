@@ -223,10 +223,11 @@ class MainActivity : ComponentActivity() {
         override fun <T : ViewModel> create(
             key: String,
             modelClass: Class<T>,
-            handle: SavedStateHandle,
+            _handle: SavedStateHandle,
         ): T {
+            // The framework supplies a handle, but journal drafts must not enter saved instance state.
             require(modelClass == DailyEntryViewModel::class.java)
-            return modelClass.cast(DailyEntryViewModel(handle, submitter, aiClient))
+            return modelClass.cast(DailyEntryViewModel(submitter, aiClient))
         }
     }
 

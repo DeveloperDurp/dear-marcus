@@ -1,6 +1,5 @@
 package com.dearmarcus.ui
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.dearmarcus.ai.AiDownloadState
 import com.dearmarcus.ai.AiFailure
@@ -47,20 +46,14 @@ class SubmitJournalDailyJournalSubmitter(
 }
 
 class DailyEntryViewModel(
-    private val savedStateHandle: SavedStateHandle,
     private val submitter: DailyJournalSubmitter,
     private val aiClient: OnDeviceAiClient? = null,
     coroutineDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) : ViewModel() {
     private val scope = CoroutineScope(SupervisorJob() + coroutineDispatcher)
     private var readinessRevision = 0
-    private val mutableUiState = MutableStateFlow(
-        DailyEntryUiState(
-            whatWentWell = savedStateHandle.get<String>(WENT_WELL_KEY).orEmpty(),
-            whatWentPoorly = savedStateHandle.get<String>(WENT_POORLY_KEY).orEmpty(),
-            whatWouldYouDoDifferently = savedStateHandle.get<String>(DO_DIFFERENTLY_KEY).orEmpty(),
-        ),
-    )
+    // Draft answers are sensitive and intentionally remain in process memory only.
+    private val mutableUiState = MutableStateFlow(DailyEntryUiState())
 
     val uiState: StateFlow<DailyEntryUiState> = mutableUiState
 
@@ -71,7 +64,6 @@ class DailyEntryViewModel(
     fun updateAnswer(question: DailyQuestion, answer: String) {
         if (mutableUiState.value.submission is DailySubmissionState.Saving) return
         mutableUiState.value = mutableUiState.value.withAnswer(question, answer)
-        savedStateHandle[draftKey(question)] = answer
     }
 
     fun submit() {
@@ -108,7 +100,6 @@ class DailyEntryViewModel(
                 return@launch
             }
 
-            clearDraft()
             mutableUiState.value = DailyEntryUiState(
                 submission = result.toSubmissionState(),
                 aiReadiness = result.toAiReadiness(mutableUiState.value.aiReadiness),
@@ -179,18 +170,6 @@ class DailyEntryViewModel(
         super.onCleared()
     }
 
-    private fun clearDraft() {
-        savedStateHandle.remove<String>(WENT_WELL_KEY)
-        savedStateHandle.remove<String>(WENT_POORLY_KEY)
-        savedStateHandle.remove<String>(DO_DIFFERENTLY_KEY)
-    }
-
-    private fun draftKey(question: DailyQuestion): String = when (question) {
-        DailyQuestion.WENT_WELL -> WENT_WELL_KEY
-        DailyQuestion.WENT_POORLY -> WENT_POORLY_KEY
-        DailyQuestion.DO_DIFFERENTLY -> DO_DIFFERENTLY_KEY
-    }
-
     private fun SubmitJournalResult.toSubmissionState(): DailySubmissionState = when (this) {
         is SubmitJournalResult.Reflected -> DailySubmissionState.Reflected(reflection.feedback())
         is SubmitJournalResult.SavedWithoutReflection ->
@@ -208,11 +187,5 @@ class DailyEntryViewModel(
                 previousReadiness.takeIf { it is AiReadiness.Error } ?: AiReadiness.Unavailable
             ReflectionFailure.ENTRY_CHANGED -> previousReadiness
         }
-    }
-
-    private companion object {
-        const val WENT_WELL_KEY = "daily-entry-went-well"
-        const val WENT_POORLY_KEY = "daily-entry-went-poorly"
-        const val DO_DIFFERENTLY_KEY = "daily-entry-do-differently"
     }
 }
