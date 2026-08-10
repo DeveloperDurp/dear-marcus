@@ -11,6 +11,9 @@ import org.json.JSONObject
 
 internal class JournalBackupJsonParser {
     fun parse(payload: String): JournalBackupDecodeResult = try {
+        if (payload.exceedsMaximumNestingDepth()) {
+            fail(JournalBackupDecodeFailure.InvalidBackup("$"))
+        }
         val root = JSONObject(payload)
         root.requireOnlyFields("$", ROOT_FIELDS)
         if (root.requireString("$.format") != JournalBackupContract.FORMAT) {
@@ -20,6 +23,9 @@ internal class JournalBackupJsonParser {
         if (version != JournalBackupContract.VERSION) fail(JournalBackupDecodeFailure.UnsupportedVersion(version))
 
         val entries = root.requireArray("$.entries").let { array ->
+            if (array.length() > JournalBackupContract.MAXIMUM_ENTRIES) {
+                fail(JournalBackupDecodeFailure.InvalidBackup("$.entries"))
+            }
             List(array.length()) { index -> parseEntry(array.requireObject(index, "entries[$index]"), index) }
         }
         JournalBackupDecodeResult.Success(
@@ -132,6 +138,31 @@ internal class JournalBackupJsonParser {
 
     private fun JSONArray.requireObject(index: Int, path: String): JSONObject =
         get(index) as? JSONObject ?: fail(JournalBackupDecodeFailure.InvalidBackup(path))
+
+    private fun String.exceedsMaximumNestingDepth(): Boolean {
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for (character in this) {
+            if (inString) {
+                when {
+                    escaped -> escaped = false
+                    character == '\\' -> escaped = true
+                    character == '"' -> inString = false
+                }
+            } else {
+                when (character) {
+                    '"' -> inString = true
+                    '{', '[' -> {
+                        depth += 1
+                        if (depth > JournalBackupContract.MAXIMUM_JSON_NESTING_DEPTH) return true
+                    }
+                    '}', ']' -> depth -= 1
+                }
+            }
+        }
+        return false
+    }
 
     private companion object {
         val ROOT_FIELDS = setOf("format", "version", "exportedAtEpochMillis", "entries")

@@ -27,6 +27,9 @@ class JournalBackupCodec {
     }
 
     fun decode(payload: String): JournalBackupDecodeResult {
+        if (payload.length > JournalBackupContract.MAXIMUM_DOCUMENT_CHARACTERS) {
+            return JournalBackupDecodeResult.Failure(JournalBackupDecodeFailure.InvalidBackup("$"))
+        }
         if (payload.isBlank()) return JournalBackupDecodeResult.Failure(JournalBackupDecodeFailure.BlankPayload)
 
         return when (val parsed = JournalBackupJsonParser().parse(payload)) {
