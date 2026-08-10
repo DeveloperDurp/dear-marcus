@@ -104,7 +104,11 @@ fun DearMarcusRoot(
                     onDestinationSettled(item)
                     pendingDestination = null
                 }
-                else -> Unit
+                else -> {
+                    destination = item
+                    onDestinationSettled(item)
+                    pendingDestination = null
+                }
             }
         }
     }
